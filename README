@@ -1,0 +1,33 @@
+
+*****************************************************************************
+
+                              Asteroids.js
+                      an Asteroids Clone in 10k or less
+                           entered in 10k Apart
+                          (10k.aneventapart.com)
+
+                        Copyright 2010 Nicholas Husher
+*****************************************************************************
+
+
+Compilation / Installation:
+
+There are three compile scripts available in the /src/scripts directory, 
+depending on what you want to do.
+
+build.sh
+	encodes the mp3s as base64, prepends them to the javascript, compresses
+	the javascript, encodes it as a png, and copies it into the root
+	directory along with index.html.
+	
+debug.sh
+	encodes the mp3s and prepends them as above, but does not compress the
+	javascript. This is useful for getting a line/column number for JS
+	errors. This copies debug.html into the root directory, renaming it to
+	index.html
+	
+tests.sh
+	copies tests.js and tests.html into the root directory. This target is
+	for testing new graphic designs and creating the encoded vector maps of
+	any graphics updates, which can then be copied into asteroids.js
+	
