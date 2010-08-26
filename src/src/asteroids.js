@@ -1,3 +1,4 @@
+/* Copyright 2010 Nicholas Husher */
 (function() {
 	var canvas = document.getElementById('c'),
 		context = canvas.getContext('2d'),
@@ -9,9 +10,9 @@
 		C_TRUE = true,
 		C_DEGREES = Math.PI / 180,
 		C_MILLISECONDS = 1000,
-		C_BEAT = 25,
+		C_BEAT = 25, // desired milliseconds between frames = 40fps
 		C_360 = 360,
-		C_INVULNERABLE_TIME = 5 * C_MILLISECONDS,
+		C_INVULNERABLE_TIME = 5 * C_MILLISECONDS, // shield last 5 seconds
 		C_STROKE_STYLE = "#EEE",
 		C_CAPTIONS = [ '*BLAM*', '*POW*', '*CRASH*', '*BOOM*' ],
 		
@@ -19,8 +20,8 @@
 		C_KEYDN = 'keydown',
 		
 		// GAME-RELATED CONSTANTS
-		C_ROTATION_SPEED   = 270,
-		C_MAX_ASTEROIDS    = 4,
+		C_ROTATION_SPEED   = 270, // don't let rotation get out of hand!
+		C_MAX_ASTEROIDS    = 4,   // asteroids = max asteroids * level
 		C_SHIP             = 's',
 		C_BULLET           = 'b',
 		C_PARTICLE         = 'p',
@@ -38,11 +39,16 @@
 		F_SINE = function(i) { return Math.sin(i * C_DEGREES); },
 		F_RANDOM = function(m) { return Math.random() * m; },
 		F_LATER = function(fn,t) { return setTimeout(fn,t); },
+
+		// returns the distance between two objects
 		F_DISTANCE = function(o1,o2) {
 			return Math.sqrt(
 				Math.pow(o1.x - o2.x, 2) +
 				Math.pow(o1.y - o2.y, 2)) - o1.b * o1.s - o2.b * o2.s;
 		},
+		
+		// returns a mixin object of all the input objects, with later
+		// parameters overriding earlier ones.
 		F_MIX = function() {
 			var out = {}, p, i, a = arguments;
 			for(i = 0; i < F_LENGTH(a); i += 1) {
@@ -50,7 +56,10 @@
 			}
 			return out;
 		},
-		F_DRAW = function(x,y,r,s,p,c) { // x, y, rotation, scale, points, close path?
+		
+		// draws a set of points at a certain location on the canvas
+		F_DRAW = function(x,y,r,s,p,c) {
+			 // x, y, rotation, scale, points, close path?
 			var i, j;
 			
 			context.save();
@@ -72,13 +81,20 @@
 
 			context.restore();
 		},
+		
+		// draws a circle, since we can't easily do that with just points
+		// used when drawing the shield
 		F_DRAW_CIRCLE = function(x,y,r) {
+			// x, y, radius
 			context.strokeStyle = '#666';
 			context.beginPath();
 			context.arc(x, y, r, 0, C_360 * C_DEGREES, false);
 			context.stroke();
 			context.strokeStyle = C_STROKE_STYLE;
 		},
+		
+		// decodes an encoded point character into an X or Y coordinate.
+		// see tests.js for the encoding function and raw point map.
 		F_DECODE_CHAR = function(c) {
 			var ch = c.charCodeAt(0), offset = 32, out;
 
@@ -93,13 +109,17 @@
 			}
 			return out;
 		},
+		
+		// decompresses a string of characters into an X Y point map
+		// this reduces point map size by between 30 and 40 percent
 		F_DECOMPRESS = function(s) {
 			var out = [], chains = s.split(':');
 
 			chains.forEach(function(coords) {
 				var i, chain = [];
 				for(i = 0; i < F_LENGTH(coords); i += 2) {
-					chain.push([ F_DECODE_CHAR(coords[i]), F_DECODE_CHAR(coords[i+1]) ]);
+					chain.push([ F_DECODE_CHAR(coords[i]),
+						F_DECODE_CHAR(coords[i+1]) ]);
 				}
 				out.push(chain);
 			});
@@ -107,44 +127,48 @@
 		},
 		
 		// NON_CONSTANTS
-		G_SHIP         = C_NULL,
-		G_SCOREBOARD   = C_NULL,
-		G_SHIELD_TIME  = C_FALSE,
-		G_MISSILES     = 5,
-		G_LIVES        = 2,
-		G_ASTEROIDS    = 0,
-		G_LAST_BULLET  = F_NOW(),
-		G_BULLET_LIFE  = 1.5,
-		G_ENTITIES     = [],
-		G_DEFAULTS     = { x:0, y:0, r:0, dx:0, dy:0, dr:0, dts: 0, s:1, b: 0 },
-		G_PAUSED       = C_FALSE,
-		G_LEVEL        = 1,
-		G_LEVEL_START  = F_NOW(),
-		G_SCORE        = 0,
-		G_COLLISIONS   = [],
-		G_CAPTION_PTR  = 0,
-		G_MAX_X,
-		G_MAX_Y,
-		G_CANVAS_W,
-		G_CANVAS_H,
-		G_LAST_TICK,
-		G_TIMEOUT,
+		G_SHIP         = C_NULL,  // shortcut to the player ship
+		G_SCOREBOARD   = C_NULL,  // shortcut to the scoreboard
+		G_SHIELD_TIME  = C_FALSE, // timestamp when last shield was created
+		G_MISSILES     = 5,       // remaining missiles
+		G_LIVES        = 2,       // remaining lives
+		G_ASTEROIDS    = 0,       // asteroids on the playing field
+		G_LAST_BULLET  = F_NOW(), // the last time the player shot
+		G_BULLET_LIFE  = 1.5,     // the lifetime of the bullet
+		G_ENTITIES     = [],      // a list of the objects on the field
+		G_DEFAULTS     = {
+			// default values when spawning new objects
+			x:0, y:0, r:0, dx:0, dy:0, dr:0, dts: 0, s:1, b: 0
+		},
+		G_PAUSED       = C_FALSE, // is the game paused?
+		G_LEVEL        = 1,       // what level is it?
+		G_LEVEL_START  = F_NOW(), // when did the level start?
+		G_SCORE        = 0,       // current score
+		G_COLLISIONS   = [],      // a list of collisions per tick
+		G_CAPTION_PTR  = 0,       // which caption to display next
+		G_MAX_X,                  // maximum horiz extent of the field
+		G_MAX_Y,                  // maximum vert extent of the field
+		G_CANVAS_W,               // canvas width (G_MAX_X * 2)
+		G_CANVAS_H,               // canvas height (G_MAX_Y * 2)
+		G_LAST_TICK,              // used to generate time deltas
+		G_TIMEOUT,                // timeout for game execution loop
 		
 		// OBJECTS
 		OBJECTS = {
 			/*
-			t: type
-			p: points
-			b: bounds
+			t:  type
+			p:  points
+			b:  bounding circle size
 			sp: spawn callback
 			ds: despawn callback
+			c:  collision callback
 			*/
 			's': {
 				t: C_SHIP,
 				p: F_DECOMPRESS('gWYlZonool:eiiijggbdg'),
-				th: F_DECOMPRESS('iqeqbxevgxivlx'),
+				th: F_DECOMPRESS('iqeqbxevgxivlx'), // thruster pointmap
 				b: 10,
-				i: true,
+				i: C_TRUE, // invulnerable?
 				sp: function() {
 					G_SHIP = this;
 					G_SHIELD_TIME = F_NOW();
@@ -227,7 +251,8 @@
 				p: F_DECOMPRESS('dyltsstpxgvWgOYWSYVgTr'),
 				b: 20,
 				sp: function(px) {
-					var p = px || { dx: 0, dy: 0 }, c = (px) ? 100 : 200, that = this;
+					var p = px || { dx: 0, dy: 0 },
+						c = (px) ? 100 : 200, that = this;
 					
 					if(px) {
 						that.s = F_RANDOM(0.4) * px.s + 0.5;
@@ -249,8 +274,11 @@
 					var i, that = this, bigAsteroid = !!that.ba, s = 0;
 					G_ASTEROIDS -= 1;
 					
+					// add to score. More points for greater distance.
 					if(a.t === C_BULLET && G_SHIP) {
-						s = ((bigAsteroid) ? 50 : 10) * Math.floor(F_DISTANCE(that, G_SHIP)/10);
+						s = ((bigAsteroid) ? 50 : 10) *
+							Math.floor(F_DISTANCE(that, G_SHIP)/10);
+							
 						G_SCORE += s;
 					}
 
@@ -258,10 +286,16 @@
 						if(bigAsteroid) {
 							O_SPAWN(C_ASTEROID, { parent: that });
 						}
-						O_SPAWN(C_PARTICLE, { parent: that, r: F_RANDOM(C_360) });
-						O_SPAWN(C_PARTICLE, { parent: that, r: F_RANDOM(C_360) });
+						O_SPAWN(C_PARTICLE, {
+							parent: that, r: F_RANDOM(C_360)
+						});
+						
+						O_SPAWN(C_PARTICLE, {
+							parent: that, r: F_RANDOM(C_360)
+						});
 					}
 					
+					// sometimes spawn a shield generator
 					if(!bigAsteroid && F_RANDOM(10) < 1) {
 						O_SPAWN(C_SHIELD, {
 							x: that.x,
@@ -339,6 +373,8 @@
 			}
 		},
 		
+		// the character map contains all the compressed characters
+		// the game uses, stored as pointmaps.
 		CHARACTER_MAP = { 
 			'0': F_DECOMPRESS('kgqguku0q4k4g0gkkg:rljz'), 
 			'1': F_DECOMPRESS('jlngn4:g4u4'), 
@@ -352,8 +388,8 @@
 			'9': F_DECOMPRESS('h4p3uxuqukqgkggkgrkvpvuq'), 
 			' ': F_DECOMPRESS('gg'),
 			'*': F_DECOMPRESS('njn1:gsus:ilsz:sliz'),
-			'@': F_DECOMPRESS('sguk'), 
-			'#': F_DECOMPRESS('iggk'), 
+			'@': F_DECOMPRESS('sguk'), // @ = left single quote
+			'#': F_DECOMPRESS('iggk'), // # = right single quote 
 			'A': F_DECOMPRESS('g5gokgqguou5:gsus'), 
 			'B': F_DECOMPRESS('ggg4r4u1uvrsupujrggg:gsrs'), 
 			'C': F_DECOMPRESS('ukqgkggkg0k4q4u0'), 
@@ -387,6 +423,7 @@
 			}
 			return ent;
 		},
+		
 		O_DESPAWN = function(i) {
 			var ent = G_ENTITIES[i], cause = G_COLLISIONS[i];
 			G_ENTITIES[i] = C_NULL;
@@ -394,6 +431,9 @@
 				ent.ds.call(ent, cause);
 			}
 		},
+		
+		// calculate any collisions and call the objects' collision callbacks,
+		// if they have them.
 		O_COLLISIONS = function() {
 			var collisions = [], i, j, k, l;
 			
@@ -415,12 +455,15 @@
 			return collisions;
 		},
 		O_DRAW = function(ent) {
-			if(ent.i) {
+			if(ent.i) { // if invlunerable, draw a shield
 				F_DRAW_CIRCLE(ent.x,ent.y,ent.b * 1.5);
 			}
+			
+			// if text, draw it centered on its x/y coords.
 			if(ent.t == C_TEXT) {
-				var i, st = ent.m.toUpperCase(), p, l = F_LENGTH(st),
-					ox = l * -20/2 * ent.s + ent.x, oy = ent.y - 25/2 * ent.s ;
+				var i, st = ent.m.toUpperCase(), p,
+					ox = l * -20/2 * ent.s + ent.x,
+					oy = ent.y - 25/2 * ent.s ;
 				
 				for(i = 0; i < F_LENGTH(st); i += 1) {
 					p = CHARACTER_MAP[st.charAt(i)];
@@ -433,6 +476,9 @@
 				F_DRAW(ent.x,ent.y,ent.r,ent.s,ent.p,C_TRUE);				
 			}
 		},
+		
+		// draw a moving bit of text showing how many points an entity has
+		// just given the player.
 		O_SCOREUP = function(x,y,s) {
 			O_SPAWN(C_TEXT, {
 				m: "" + s,
@@ -443,6 +489,8 @@
 				y: y - 15
 			});
 		},
+		
+		// clean up entities that have a negative lifespan.
 		O_CLEANUP = function() {
 			for(var i = 0; i < F_LENGTH(G_ENTITIES); i += 1) {
 				if(G_ENTITIES[i] == C_NULL) {
@@ -453,8 +501,8 @@
 		},
 		
 		// SOUND CONTSTANTS
-		S_PLAY_SOUNDS,
-		S_SHOULD_PLAY_SOUNDS = C_TRUE,
+		S_PLAY_SOUNDS,                 // does the browser support sound?
+		S_SHOULD_PLAY_SOUNDS = C_TRUE, // is the sound turned on?
 		S_LASER = 0,
 		S_THRUST = 1,
 		S_EXPLODE = 2,
@@ -466,9 +514,32 @@
 		S_NEW_AUDIO = function() {
 			return !F_UNDEFINED(window.Audio) ? new Audio() : false;			
 		},
+		
 		S_INIT_SOUNDS = function() {
 			var a = S_NEW_AUDIO();
 
+			// Sound is available when the following things are true:
+			// 1. The BOM has an "Audio" object available to it*
+			// 2. There isn't a #nosound hash at the end of the url
+			// 3. It can play an mpeg stream (mp3)
+			//
+			// * note that while IE9 Platform Preview has the audio
+			//   _tag_ available to it, it does not have an audio object
+			//   I made this choice specifically because the audio api in
+			//   IE9 PP is extremely beta and tended to crash the browser
+			//   at random intervals, while not ever playing sounds, even
+			//   if it supports MP3 audio.
+			//
+			//   There apppear to be two possible reasons for this. The first
+			//   is a known issue when dynamically setting the source of an
+			//   html5 media tag[1][2], and the other is that it's possible
+			//   data URIs are not supported on the src attribute of media
+			//   tags yet[2].
+			//
+			// [1]: https://connect.microsoft.com/IE/feedback/details/582691
+			// [2]: http://bit.ly/cTyuQg
+			// [3]: http://bit.ly/Wu4rf
+			
 			S_PLAY_SOUNDS = (a &&
 				window.location.hash !== '#nosound' &&
 				a.canPlayType &&
@@ -494,6 +565,8 @@
 		S_PLAY = function(sound) {
 			if(S_PLAY_SOUNDS && S_SHOULD_PLAY_SOUNDS) {
 				if(sound == S_THRUST) {
+					// don't stack thrusts. it slows the browser down
+					// and sounds awful.
 					if(F_NOW() - S_THRUST_LAST_PLAY > 60) {
 						S_SOUNDS[sound].play();
 						S_THRUST_LAST_PLAY = F_NOW();						
@@ -504,8 +577,15 @@
 			}
 		},
 		S_STOP = function(sound) {
-//			if(S_PLAY_SOUNDS) { S_SOUNDS[sound].pause(); S_SOUNDS[sound].currentTime = 0; }
+//          This seems to just slow most browsers down.
+//			if(S_PLAY_SOUNDS) {
+//				S_SOUNDS[sound].pause();
+//				S_SOUNDS[sound].currentTime = 0;
+//			}
 		},
+		
+		// If a browser can't play MP3s (see INIT_SOUNDS above), display
+		// a comic book style caption instead.
 		S_CAPTION = function(x,y) {
 			if(!S_PLAY_SOUNDS) {
 				O_SPAWN(C_TEXT, {
@@ -522,8 +602,8 @@
 		},
 		
 		// RENDER LOOP
-		R_THRUST = function() {},
-		R_ROTATE = function() {},
+		R_THRUST = function() {}, // thrust the ship? altered by R_INPUT
+		R_ROTATE = function() {}, // rotate the ship? altered by R_INPUT
 		
 		R_TICK = function() {
 			if(!G_PAUSED) {				
@@ -595,7 +675,9 @@
 					});
 				}
 				for(i = 1; i <= G_LIVES; i += 1) {
-					F_DRAW(-G_MAX_X + 25*i, -G_MAX_Y + 25, 0, 1, G_SHIP_ICON, true);
+					F_DRAW(-G_MAX_X + 25*i,
+						-G_MAX_Y + 25, 0, 1,
+						G_SHIP_ICON, true);
 				}
 			}
 			O_CLEANUP();
@@ -612,6 +694,8 @@
 		
 		R_INPUT = function(ev) {
 			var t = ev.type;
+			
+			// TODO: ignore inputs if the game is paused unless its to unpause
 			if(!G_SHIP) { return; }
 			if(F_KEYCODE(ev) == 39) { // right			
 				R_ROTATE = t == C_KEYDN ?
@@ -638,16 +722,22 @@
 							G_SHIP.p.pop();						
 						}
 					};
-			} else if(F_KEYCODE(ev) == 32 && F_NOW() - G_LAST_BULLET > 300) { // spacebar
+			} else if(F_KEYCODE(ev) == 32 && F_NOW() - G_LAST_BULLET > 300) { 
+				// spacebar
 				G_LAST_BULLET = G_LAST_TICK;
 				O_SPAWN(C_BULLET, { parent: G_SHIP });
-			} else if(F_KEYCODE(ev) == 83 && t == C_KEYDN) { // s, toggle sounds
+			} else if(F_KEYCODE(ev) == 83 && t == C_KEYDN) {
+				// s, toggle sounds
 				S_SHOULD_PLAY_SOUNDS = !S_SHOULD_PLAY_SOUNDS;
-			} else if(F_KEYCODE(ev) == 67 && F_NOW() - G_LAST_BULLET > 300 && G_MISSILES > 0) {
+			} else if(F_KEYCODE(ev) == 67 &&
+				F_NOW() - G_LAST_BULLET > 300 && G_MISSILES > 0) {
+
+				// fire missile
 				G_LAST_BULLET = G_LAST_TICK;
 				G_MISSILES -= 1;
 				O_SPAWN(C_BLAST, { parent: G_SHIP });
-			} else if(F_KEYCODE(ev) == 80 && t == C_KEYDN) { // p
+			} else if(F_KEYCODE(ev) == 80 && t == C_KEYDN) {
+				// p, pause/unpause
 				G_PAUSED = !G_PAUSED;
 			}			
 		},
@@ -676,17 +766,28 @@
 			G_ASTEROIDS  = 0;
 			G_MISSILES   = 5;
 			G_SHIP       = C_NULL;
-			G_SCOREBOARD = O_SPAWN(C_TEXT, { y: -G_MAX_Y + 15, s: 0.5, m: "SCORE " + G_SCORE });
+			G_SCOREBOARD = O_SPAWN(C_TEXT, {
+				y: -G_MAX_Y + 15, s: 0.5, m: "SCORE " + G_SCORE
+			});
 			
 			if(G_LEVEL == 1) {
+				
+				// new game / game reset, so reset some key fields
 				G_LIVES = 2;
 				G_SCORE = 0;
 				O_SPAWN(C_TEXT, { y: -100, m: "ASTEROIDS", l: 3 });
 			} else {
-				bonus = 35 * G_LEVEL - (F_NOW() - G_LEVEL_START) / C_MILLISECONDS;
+				
+				// give a bonus if they completed the round quickly
+				bonus = 35 * G_LEVEL - (F_NOW() - G_LEVEL_START) /
+					C_MILLISECONDS;
+
 				bonus = Math.floor(Math.max(bonus,0)) * 10;
+
 				if(bonus > 0) {
-					O_SPAWN(C_TEXT, { y: -100, m: bonus + " BONUS POINTS", l: 3 });
+					O_SPAWN(C_TEXT, {
+						y: -100, m: bonus + " BONUS POINTS", l: 3
+					});
 					G_SCORE += bonus;
 				}
 			}
@@ -702,6 +803,8 @@
 				m: i
 			});
 
+			// populate the field with asteroids, more asteroids
+			// on each level
 			for(i = 0; i < C_MAX_ASTEROIDS * G_LEVEL / 2; i += 1) {
 				O_SPAWN(C_ASTEROID, {
 					x: -G_MAX_X,
