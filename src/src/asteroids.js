@@ -462,7 +462,7 @@
 			// if text, draw it centered on its x/y coords.
 			if(ent.t == C_TEXT) {
 				var i, st = ent.m.toUpperCase(), p,
-					ox = l * -20/2 * ent.s + ent.x,
+					ox = F_LENGTH(st) * -20/2 * ent.s + ent.x,
 					oy = ent.y - 25/2 * ent.s ;
 				
 				for(i = 0; i < F_LENGTH(st); i += 1) {
