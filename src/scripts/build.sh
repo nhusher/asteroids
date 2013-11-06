@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm ../../*
+# rm ../../*
 cp ../src/index.html ../../
 cp ../src/asteroids.js ../build/asteroids.js
 
