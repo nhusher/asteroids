@@ -1,2 +1,0 @@
-<!DOCTYPE html>
-<html><head><title>ASTEROIDS</title><style>html,body{background:#000;margin:0;padding:0;}#c{position:absolute;height:100%;width:100%;}</style></head><body><canvas id="c"></canvas><script>var c=(document.createElement("canvas")).getContext("2d"),cv=c.canvas,i=new Image(),d,h,w,j,o=[];i.onload=function(){h=cv.height=i.height;w=cv.width=i.width;c.drawImage(i,0,0,w,h);d=c.getImageData(0,0,w,h).data;for(j=0;j<d.length;j+=4){if(d[j]>0){o.push(String.fromCharCode(d[j]))}}eval(o.join(""))};i.src="./ast.png";</script></body></html>
