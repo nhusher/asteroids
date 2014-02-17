@@ -506,7 +506,8 @@
 		S_LASER = 0,
 		S_THRUST = 1,
 		S_EXPLODE = 2,
-		
+		S_PREFIX = "data:audio/mp3;base64,",
+    
 		S_SOUNDS = [],
 		S_THRUST_LAST_PLAY = F_NOW(),
 		
@@ -547,17 +548,17 @@
 
 			if(S_PLAY_SOUNDS) {
 				a = S_NEW_AUDIO();
-				a.src = MP3[S_LASER];
+				a.src = S_PREFIX + MP3[S_LASER];
 				a.load();
 				S_SOUNDS.push(a);
 
 				a = S_NEW_AUDIO();
-				a.src = MP3[S_THRUST];
+				a.src = S_PREFIX + MP3[S_THRUST];
 				a.load();
 				S_SOUNDS.push(a);
 				
 				a = S_NEW_AUDIO();
-				a.src = MP3[S_EXPLODE];
+				a.src = S_PREFIX + MP3[S_EXPLODE];
 				a.load();
 				S_SOUNDS.push(a);				
 			}
