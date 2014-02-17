@@ -1,0 +1,24 @@
+{
+  "name": "asteroids",
+  "version": "0.2.0",
+  "author": "Nick Husher <nhusher@gmail.com>",
+  "description": "Asteroids with sound in 10k or less.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nhusher/asteroids.git"
+  },
+  "dependencies": {
+    "grunt": "0.4.2",
+    "grunt-contrib-uglify": "*",
+    "grunt-contrib-clean": "*",
+    "grunt-base64": "*",
+    "grunt-mkdir": "*",
+    "grunt-contrib-copy": "*",
+    "grunt-shell": "*",
+    "grunt-contrib-concat": "*"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.6"
+  }
+}
